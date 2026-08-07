@@ -876,14 +876,26 @@ for key in \
   fi
 done
 
-echo "[bootstrap] Starting agent server..."
-python3 /app/scripts/agent_server/main.py &
-AGENT_PID=$!
+# Skip agent_server when Fariborz Bot is active (they share PORT)
+if [[ -z "${FARIBORZ_BOT_TOKEN:-}" ]]; then
+  echo "[bootstrap] Starting agent server..."
+  python3 /app/scripts/agent_server/main.py &
+  AGENT_PID=$!
+else
+  echo "[bootstrap] Skipping agent server (Fariborz Bot active on PORT)."
+  AGENT_PID=""
+fi
 
 _wait_for_agent_server() {
   local port="${PORT:-3000}"
   local max_attempts=15
   local attempt=0
+
+  # Skip if no agent server (Fariborz Bot mode)
+  if [[ -z "${AGENT_PID:-}" ]]; then
+    echo "[bootstrap] Skipping agent server wait (Fariborz Bot mode)."
+    return 0
+  fi
 
   echo "[bootstrap] Waiting for agent server on port ${port}..."
   while [[ $attempt -lt $max_attempts ]]; do
@@ -928,10 +940,10 @@ GATEWAY_PID=$!
 
 # === Fariborz Bot (public bot) ===
 if [[ -n "${FARIBORZ_BOT_TOKEN:-}" ]]; then
-  echo "[bootstrap] Starting Fariborz Bot..."
-  gunicorn bot:app --bind 0.0.0.0:${BOT_PORT:-8001} --timeout 120 &
+  echo "[bootstrap] Starting Fariborz Bot on port ${PORT:-3000}..."
+  gunicorn bot:app --bind 0.0.0.0:${PORT:-3000} --timeout 120 &
   FARIBORZ_PID=$!
-  echo "[bootstrap] Fariborz Bot started on port ${BOT_PORT:-8001}"
+  echo "[bootstrap] Fariborz Bot started"
 else
   echo "[bootstrap] FARIBORZ_BOT_TOKEN not set — skipping Fariborz Bot."
   FARIBORZ_PID=""
@@ -939,7 +951,7 @@ fi
 
 trap 'cleanup $?' EXIT INT TERM
 
-PROCS=("$AGENT_PID" "$GATEWAY_PID")
+PROCS=("$GATEWAY_PID")
 [[ -n "$FARIBORZ_PID" ]] && PROCS+=("$FARIBORZ_PID")
 
 if ! wait -n "${PROCS[@]}"; then
@@ -948,7 +960,7 @@ else
   status=0
 fi
 
-if ! kill -0 "$AGENT_PID" 2>/dev/null; then
+if [[ -n "${AGENT_PID:-}" ]] && ! kill -0 "$AGENT_PID" 2>/dev/null; then
   echo "[bootstrap] ERROR: Agent server exited." >&2
   status=1
 fi
