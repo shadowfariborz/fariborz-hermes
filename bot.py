@@ -118,12 +118,15 @@ def hermes_chat(message, user_id, user_name, image_b64=None):
         # Call OpenAI-compatible API
         r = http.post(f"{base_url}/chat/completions", 
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": os.environ.get("LLM_MODEL", "gpt-3.5-turbo"), "messages": messages, "max_tokens": 1500},
+            json={"model": os.environ.get("LLM_MODEL", "tekh"), "messages": messages, "max_tokens": 1500},
             timeout=60)
         
-        # Parse JSON safely
+        # Parse JSON safely (strip streaming suffix)
         try:
-            rj = r.json()
+            raw = r.text
+            if 'data: [DONE]' in raw:
+                raw = raw[:raw.index('data: [DONE]')]
+            rj = json.loads(raw.strip())
         except:
             # Try to extract JSON from response text
             txt = r.text
