@@ -94,14 +94,46 @@ def dl_file(fid):
 
 # ─── Hermes API ───────────────────────────────────────────────────────
 def hermes_chat(message, user_id, user_name, image_b64=None):
+    """Direct OpenAI API call (no agent_server needed)"""
     try:
-        body = {"token": API_SECRET, "message": message, "user_id": str(user_id), "user_name": user_name}
-        if image_b64: body["image_base64"] = image_b64
-        r = http.post(f"{HERMES_URL}/chat", json=body, timeout=120).json()
-        if r.get("error"): return f"⚠️ {r['error']}"
-        return r.get("response", "پاسخی دریافت نشد")
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        if not api_key:
+            return "⚠️ OPENAI_API_KEY تنظیم نشده"
+        
+        # Build messages
+        messages = [{"role": "system", "content": "تو فریبرز هستی، یک ربات فارسی‌زبان دوستانه و باهوش. با فارسی جواب بده مگر اینکه کاربر انگلیسی حرف بزنه."}]
+        
+        # Load history
+        h = kv_get(f"hist_{user_id}")
+        if h:
+            try:
+                history = json.loads(h)
+                messages.extend(history[-10:])
+            except: pass
+        
+        # Add current message
+        messages.append({"role": "user", "content": message})
+        
+        # Call OpenAI-compatible API
+        r = http.post(f"{base_url}/chat/completions", 
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": os.environ.get("LLM_MODEL", "gpt-3.5-turbo"), "messages": messages, "max_tokens": 1500},
+            timeout=60).json()
+        
+        if r.get("error"):
+            return f"⚠️ {r['error'].get('message', 'خطا')}"
+        
+        reply = r.get("choices", [{}])[0].get("message", {}).get("content", "پاسخی دریافت نشد")
+        
+        # Save history
+        messages.append({"role": "assistant", "content": reply[:500]})
+        if len(messages) > 20: messages = messages[-20:]
+        kv_set(f"hist_{user_id}", json.dumps(messages[-10:], ensure_ascii=False))
+        
+        return reply
     except Exception as e:
-        return "❌ خطا در اتصال به هوش مصنوعی"
+        return f"❌ خطا: {str(e)[:100]}"
 
 def hermes_stt(audio_b64):
     try:
