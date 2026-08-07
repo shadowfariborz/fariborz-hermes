@@ -102,7 +102,7 @@ def hermes_chat(message, user_id, user_name, image_b64=None):
             return "⚠️ OPENAI_API_KEY تنظیم نشده"
         
         # Build messages
-        messages = [{"role": "system", "content": "تو فریبرز هستی، یک ربات فارسی‌زبان دوستانه و باهوش. با فارسی جواب بده مگر اینکه کاربر انگلیسی حرف بزنه."}]
+        messages = [{"role": "system", "content": "You are Fariborz, a friendly Persian-speaking AI assistant. ALWAYS respond in Persian (فارسی). Never use other scripts like Ge'ez, Arabic, or English unless the user specifically asks. Keep responses short and friendly. Use emojis."}]
         
         # Load history
         h = kv_get(f"hist_{user_id}")
