@@ -119,12 +119,23 @@ def hermes_chat(message, user_id, user_name, image_b64=None):
         r = http.post(f"{base_url}/chat/completions", 
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={"model": os.environ.get("LLM_MODEL", "gpt-3.5-turbo"), "messages": messages, "max_tokens": 1500},
-            timeout=60).json()
+            timeout=60)
         
-        if r.get("error"):
-            return f"⚠️ {r['error'].get('message', 'خطا')}"
+        # Parse JSON safely
+        try:
+            rj = r.json()
+        except:
+            # Try to extract JSON from response text
+            txt = r.text
+            try:
+                rj = json.loads(txt[:r.text.find('}{')+1] if '}{' in txt else txt)
+            except:
+                return f"❌ پاسخ نامعتبر از سرور"
         
-        reply = r.get("choices", [{}])[0].get("message", {}).get("content", "پاسخی دریافت نشد")
+        if rj.get("error"):
+            return f"⚠️ {rj['error'].get('message', 'خطا')}"
+        
+        reply = rj.get("choices", [{}])[0].get("message", {}).get("content", "پاسخی دریافت نشد")
         
         # Save history
         messages.append({"role": "assistant", "content": reply[:500]})
