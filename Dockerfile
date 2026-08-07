@@ -58,6 +58,8 @@ ENV PATH="/root/.local/bin:/opt/foundry/bin:/opt/venv/bin:${PATH}" \
   HERMES_HOME=/data/.hermes \
   HOME=/data
 
+RUN mkdir -p /data/.hermes /data/workspace
+
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /opt/hermes-agent /opt/hermes-agent
 
